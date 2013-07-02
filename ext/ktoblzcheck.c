@@ -52,7 +52,7 @@
 
 static VALUE g_error;
 static VALUE g_ktoblzcheck;
-static AccountNumberCheck* g_anc=NULL;
+static AccountNumberCheck* g_anc = NULL;
 
 #ifndef RUBY_19
 #ifndef RSTRING_PTR
@@ -64,12 +64,11 @@ static AccountNumberCheck* g_anc=NULL;
  * KtoBlzCheck#close 
  */
 static VALUE
-close_anc(VALUE self)
-{
-  if (NULL!=g_anc) {
+close_anc(VALUE self) {
+  if (NULL != g_anc) {
     AccountNumberCheck_delete(g_anc);
   } else {
-    rb_raise(g_error, "Already closed" ); 
+    rb_raise(g_error, "Already closed"); 
   }
 
   return self;
@@ -82,18 +81,16 @@ close_anc(VALUE self)
 static VALUE
 init(int argc, VALUE *argv, VALUE self)
 {
-  VALUE dp=Qnil;
+  VALUE dp = Qnil;
   
-  rb_scan_args(argc,argv,"01",&dp);
+  rb_scan_args(argc, argv, "01", &dp);
 
-  
-  if (Qnil==dp) { /* no parameter given */
-    
-    g_anc=AccountNumberCheck_new();  
-    
-  } else { /* a path to a different data path was passed to method */
-    
-    Check_Type(dp,T_STRING);
+  if (Qnil == dp) {
+    /* no parameter given */    
+    g_anc = AccountNumberCheck_new();  
+  } else {
+    /* a path to a different data path was passed to method */
+    Check_Type(dp, T_STRING);
     
     /*
      * The libktoblzcheck constructor writes an error
@@ -108,18 +105,18 @@ init(int argc, VALUE *argv, VALUE self)
      * We do basic access checking ourselves and hope for the best :)
      */
 
-    if (0!=access(RSTRING_PTR(dp),R_OK)) {
-      rb_raise(g_error,"Can't access file %s",RSTRING_PTR(dp));
+    if (0 != access(RSTRING_PTR(dp), R_OK)) {
+      rb_raise(g_error, "Can't access file %s", RSTRING_PTR(dp));
     }
-    g_anc=AccountNumberCheck_new_file(RSTRING_PTR(dp));
+    g_anc = AccountNumberCheck_new_file(RSTRING_PTR(dp));
   }
 
   /*
    * did we successfully obtain an AccountNumberCheck handle?
    */
 
-  if (NULL==g_anc) {
-    rb_raise(g_error,"Couldn't initialize libktoblzcheck");
+  if (NULL == g_anc) {
+    rb_raise(g_error, "Couldn't initialize libktoblzcheck");
     return Qnil;
   }
 
@@ -137,35 +134,22 @@ init(int argc, VALUE *argv, VALUE self)
 }
 
 /*
- * 
- * KtoBlzCheck#check(bank_code,account_no)
- *
+ * KtoBlzCheck#check(bank_code, account_no)
  */
 static VALUE
 check(VALUE self, VALUE blz, VALUE account)
 {
   AccountNumberCheck_Result res;
 
-  Check_Type(blz,T_STRING);
-  Check_Type(account,T_STRING);
+  Check_Type(blz, T_STRING);
+  Check_Type(account, T_STRING);
 
-  /*
-   * OK = 0,
-   * UNKNOWN = 1,
-   * ERROR = 2,
-   * BANK_NOT_KNOWN = 3
-   */ 
-
-  res=AccountNumberCheck_check(g_anc,RSTRING_PTR(blz),RSTRING_PTR(account));
-
+  res = AccountNumberCheck_check(g_anc, RSTRING_PTR(blz), RSTRING_PTR(account));
   return INT2FIX(res);
-
 }
 
 /*
- *
  * KtoBlzCheck.num_records
- *
  */
 static VALUE
 num_records(VALUE self)
@@ -174,36 +158,33 @@ num_records(VALUE self)
 }
 
 /*
- *
  * KtoBlzCheck.find(bank_code)
- *
  */
 static VALUE
 find_info(VALUE self, VALUE blz)
 {
-  VALUE ret=rb_ary_new2(2);
+  VALUE ret = rb_ary_new2(2);
+  const AccountNumberCheck_Record* cr;
+
   Check_Type(blz, T_STRING);
   
-  const AccountNumberCheck_Record* cr=AccountNumberCheck_findBank(g_anc,RSTRING_PTR(blz));
+  cr = AccountNumberCheck_findBank(g_anc, RSTRING_PTR(blz));
 
-  if (NULL!=cr) {
-    rb_ary_push(ret,rb_str_new2(AccountNumberCheck_Record_bankName(cr)));
-    rb_ary_push(ret,rb_str_new2(AccountNumberCheck_Record_location(cr)));
+  if (NULL != cr) {
+    rb_ary_push(ret, rb_str_new2(AccountNumberCheck_Record_bankName(cr)));
+    rb_ary_push(ret, rb_str_new2(AccountNumberCheck_Record_location(cr)));
   }
   
   return ret;
 }
 
 /*
- *
  * KtoBlzCheck.bankdata_dir(bank_code)
- *
  */
 static VALUE
 bankdata_dir()
 {
-  const char* dir=AccountNumberCheck_bankdata_dir();
-  return rb_str_new2(dir);
+  return rb_str_new2(AccountNumberCheck_bankdata_dir());
 }
 
 
@@ -215,18 +196,20 @@ Init_ktoblzcheck()
 {
   g_ktoblzcheck = rb_define_class("KtoBlzCheck", rb_cObject);
   g_error = rb_define_class_under(g_ktoblzcheck, "Error", rb_eStandardError);
+
+  rb_define_singleton_method(g_ktoblzcheck, "bankdata_dir", bankdata_dir, 0);
+  rb_define_const(g_ktoblzcheck,  "VERSION",        rb_str_new2(AccountNumberCheck_libraryVersion()));
   
+  rb_define_const(g_ktoblzcheck,  "OK",             INT2FIX(0));
+  rb_define_const(g_ktoblzcheck,  "UNKNOWN",        INT2FIX(1));
+  rb_define_const(g_ktoblzcheck,  "ERROR",          INT2FIX(2));
+  rb_define_const(g_ktoblzcheck,  "BANK_NOT_KNOWN", INT2FIX(3));
+
   rb_define_method(g_ktoblzcheck, "initialize",     init,         -1);
   rb_define_method(g_ktoblzcheck, "check",          check,        2);
   rb_define_method(g_ktoblzcheck, "num_records",    num_records,  0);
   rb_define_method(g_ktoblzcheck, "close",          close_anc,    0);
   rb_define_method(g_ktoblzcheck, "find",           find_info,    1);
-  rb_define_method(g_ktoblzcheck, "bankdata_dir",   bankdata_dir, 0);
 
-  rb_define_const(g_ktoblzcheck, "OK",              INT2FIX(0));
-  rb_define_const(g_ktoblzcheck, "UNKNOWN",         INT2FIX(1));
-  rb_define_const(g_ktoblzcheck, "ERROR",           INT2FIX(2));
-  rb_define_const(g_ktoblzcheck, "BANK_NOT_KNOWN",  INT2FIX(3));
 
-  rb_define_const(g_ktoblzcheck, "VERSION",         rb_str_new2(AccountNumberCheck_libraryVersion()));
 }

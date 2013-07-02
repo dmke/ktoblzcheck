@@ -17,3 +17,9 @@ test/version_tmp
 tmp
 *~
 .ruby-*
+
+# buildables
+ext/Makefile
+ext/*.so
+ext/*.o
+ext/*.log

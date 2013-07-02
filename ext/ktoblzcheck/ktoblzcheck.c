@@ -187,6 +187,14 @@ bankdata_dir()
   return rb_str_new2(AccountNumberCheck_bankdata_dir());
 }
 
+/*
+ *
+ */
+static VALUE
+encoding()
+{
+  return rb_str_new2(AccountNumberCheck_stringEncoding());
+}
 
 /*
  * Ruby extension stuff
@@ -198,6 +206,8 @@ Init_ktoblzcheck()
   g_error = rb_define_class_under(g_ktoblzcheck, "Error", rb_eStandardError);
 
   rb_define_singleton_method(g_ktoblzcheck, "bankdata_dir", bankdata_dir, 0);
+  rb_define_singleton_method(g_ktoblzcheck, "encoding",     encoding,     0);
+
   rb_define_const(g_ktoblzcheck,  "VERSION",        rb_str_new2(AccountNumberCheck_libraryVersion()));
   
   rb_define_const(g_ktoblzcheck,  "OK",             INT2FIX(0));
@@ -210,6 +220,4 @@ Init_ktoblzcheck()
   rb_define_method(g_ktoblzcheck, "num_records",    num_records,  0);
   rb_define_method(g_ktoblzcheck, "close",          close_anc,    0);
   rb_define_method(g_ktoblzcheck, "find",           find_info,    1);
-
-
 }

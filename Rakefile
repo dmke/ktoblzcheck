@@ -4,7 +4,7 @@ require "rspec/core/rake_task"
 RSpec::Core::RakeTask.new(:spec)
 
 task :spec_build do
-  Dir.chdir('ext') do
+  Dir.chdir('ext/ktoblzcheck') do
     output = `ruby extconf.rb`
     raise output unless $? == 0
     output = `make`

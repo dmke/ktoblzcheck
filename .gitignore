@@ -19,7 +19,7 @@ tmp
 .ruby-*
 
 # buildables
-ext/Makefile
-ext/*.so
-ext/*.o
-ext/*.log
+ext/**/Makefile
+ext/**/*.so
+ext/**/*.o
+ext/**/*.log

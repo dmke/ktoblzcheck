@@ -39,7 +39,7 @@
 *  DAMAGE.
 *************************************************************************
 * 
-* This file is part of the rbktoblzcheck package available as a gem
+* This file is part of the ktoblzcheck package available as a gem
 * 
 * $Id: ktoblzcheck.c,v 1.1 2004/10/28 19:10:19 vdpsoftware Exp $
 *  
@@ -63,75 +63,77 @@ static AccountNumberCheck* g_anc=NULL;
 /*
  * KtoBlzCheck#close 
  */
-static VALUE close_anc(VALUE self)
+static VALUE
+close_anc(VALUE self)
 {
-	if (NULL!=g_anc) {
-		AccountNumberCheck_delete(g_anc);
-	} else {
-		rb_raise(g_error, "Already closed" ); 
-	}
+  if (NULL!=g_anc) {
+    AccountNumberCheck_delete(g_anc);
+  } else {
+    rb_raise(g_error, "Already closed" ); 
+  }
 
-	return self;
+  return self;
 }
 
 /*
  * KtoBlzCheck.new [ |block| ]
  * KtoBlzCheck.new(datapath) [ |block| ]
  */
-static VALUE init(int argc, VALUE *argv, VALUE self)
+static VALUE
+init(int argc, VALUE *argv, VALUE self)
 {
-	VALUE dp=Qnil;
-	
-	rb_scan_args(argc,argv,"01",&dp);
+  VALUE dp=Qnil;
+  
+  rb_scan_args(argc,argv,"01",&dp);
 
-	
-	if (Qnil==dp) { /* no parameter given */
-		
-		g_anc=AccountNumberCheck_new();  
-		
-	} else { /* a path to a different data path was passed to method */
-		
-		Check_Type(dp,T_STRING);
-		
-		/*
-		 * The libktoblzcheck constructor writes an error
-		 * message to stderr if the given data filen can not
-		 * be accessed :( Additionally, we don't get a proper
-		 * return value which could be used to test for success
-		 * (it's a C++ constructor that we are calling). Even a
-		 * successful intialization (i.e. we get a pointer != NULL
-		 * from AccountNumberCheck_new_file doesn't mean that the
-		 * opened file is a valid data file).
-		 *
-		 * We do basic access checking ourselves and hope for the best :)
-		 */
+  
+  if (Qnil==dp) { /* no parameter given */
+    
+    g_anc=AccountNumberCheck_new();  
+    
+  } else { /* a path to a different data path was passed to method */
+    
+    Check_Type(dp,T_STRING);
+    
+    /*
+     * The libktoblzcheck constructor writes an error
+     * message to stderr if the given data filen can not
+     * be accessed :( Additionally, we don't get a proper
+     * return value which could be used to test for success
+     * (it's a C++ constructor that we are calling). Even a
+     * successful intialization (i.e. we get a pointer != NULL
+     * from AccountNumberCheck_new_file doesn't mean that the
+     * opened file is a valid data file).
+     *
+     * We do basic access checking ourselves and hope for the best :)
+     */
 
-		if (0!=access(RSTRING_PTR(dp),R_OK)) {
-			rb_raise(g_error,"Can't access file %s",RSTRING_PTR(dp));
-		}
-		g_anc=AccountNumberCheck_new_file(RSTRING_PTR(dp));
-	}
+    if (0!=access(RSTRING_PTR(dp),R_OK)) {
+      rb_raise(g_error,"Can't access file %s",RSTRING_PTR(dp));
+    }
+    g_anc=AccountNumberCheck_new_file(RSTRING_PTR(dp));
+  }
 
-	/*
-	 * did we successfully obtain an AccountNumberCheck handle?
-	 */
+  /*
+   * did we successfully obtain an AccountNumberCheck handle?
+   */
 
-	if (NULL==g_anc) {
-		rb_raise(g_error,"Couldn't initialize libktoblzcheck");
-		return Qnil;
-	}
+  if (NULL==g_anc) {
+    rb_raise(g_error,"Couldn't initialize libktoblzcheck");
+    return Qnil;
+  }
 
-	/*
-	 * block syntax
-	 *
-	 * KtoBlzCheck.new do |kbc| ... end
-	 */
+  /*
+   * block syntax
+   *
+   * KtoBlzCheck.new do |kbc| ... end
+   */
 
-	if (rb_block_given_p()) {
-		return rb_ensure(rb_yield, self, close_anc, self);
-	} else {
-	 	return self;
-	}
+  if (rb_block_given_p()) {
+    return rb_ensure(rb_yield, self, close_anc, self);
+  } else {
+    return self;
+  }
 }
 
 /*
@@ -139,23 +141,24 @@ static VALUE init(int argc, VALUE *argv, VALUE self)
  * KtoBlzCheck#check(bank_code,account_no)
  *
  */
-static VALUE check(VALUE self, VALUE blz, VALUE account)
+static VALUE
+check(VALUE self, VALUE blz, VALUE account)
 {
-	AccountNumberCheck_Result res;
+  AccountNumberCheck_Result res;
 
-	Check_Type(blz,T_STRING);
-	Check_Type(account,T_STRING);
+  Check_Type(blz,T_STRING);
+  Check_Type(account,T_STRING);
 
-	/*
-	 * OK = 0,
-	 * UNKNOWN = 1,
-	 * ERROR = 2,
-	 * BANK_NOT_KNOWN = 3
-	 */ 
+  /*
+   * OK = 0,
+   * UNKNOWN = 1,
+   * ERROR = 2,
+   * BANK_NOT_KNOWN = 3
+   */ 
 
-	res=AccountNumberCheck_check(g_anc,RSTRING_PTR(blz),RSTRING_PTR(account));
+  res=AccountNumberCheck_check(g_anc,RSTRING_PTR(blz),RSTRING_PTR(account));
 
-	return INT2FIX(res);
+  return INT2FIX(res);
 
 }
 
@@ -164,9 +167,10 @@ static VALUE check(VALUE self, VALUE blz, VALUE account)
  * KtoBlzCheck.num_records
  *
  */
-static VALUE num_records(VALUE self)
+static VALUE
+num_records(VALUE self)
 {
-	return INT2FIX(AccountNumberCheck_bankCount(g_anc));
+  return INT2FIX(AccountNumberCheck_bankCount(g_anc));
 }
 
 /*
@@ -174,35 +178,41 @@ static VALUE num_records(VALUE self)
  * KtoBlzCheck.find(bank_code)
  *
  */
-static VALUE find_info(VALUE self, VALUE blz)
+static VALUE
+find_info(VALUE self, VALUE blz)
 {
-	VALUE ret=rb_ary_new2(2);
-	Check_Type(blz, T_STRING);
-	
-	const AccountNumberCheck_Record* cr=AccountNumberCheck_findBank(g_anc,RSTRING_PTR(blz));
+  VALUE ret=rb_ary_new2(2);
+  Check_Type(blz, T_STRING);
+  
+  const AccountNumberCheck_Record* cr=AccountNumberCheck_findBank(g_anc,RSTRING_PTR(blz));
 
-	if (NULL!=cr) {
-		rb_ary_push(ret,rb_str_new2(AccountNumberCheck_Record_bankName(cr)));
-		rb_ary_push(ret,rb_str_new2(AccountNumberCheck_Record_location(cr)));
-	}
-	
-	return ret;
+  if (NULL!=cr) {
+    rb_ary_push(ret,rb_str_new2(AccountNumberCheck_Record_bankName(cr)));
+    rb_ary_push(ret,rb_str_new2(AccountNumberCheck_Record_location(cr)));
+  }
+  
+  return ret;
 }
 
 /*
  * Ruby extension stuff
  */
-void Init_ktoblzcheck()
+void
+Init_ktoblzcheck()
 {
-	g_ktoblzcheck = rb_define_class("KtoBlzCheck", rb_cObject);
-	g_error = rb_define_class_under(g_ktoblzcheck, "Error", rb_eStandardError);
-	rb_define_method(g_ktoblzcheck, "initialize", init, -1);
-	rb_define_method(g_ktoblzcheck, "check", check, 2 );
-	rb_define_method(g_ktoblzcheck, "num_records", num_records, 0 );
-	rb_define_method(g_ktoblzcheck, "close", close_anc, 0);
-	rb_define_method(g_ktoblzcheck, "find", find_info, 1 );
-	rb_define_const(g_ktoblzcheck, "OK", INT2FIX(0));
-	rb_define_const(g_ktoblzcheck, "UNKNOWN", INT2FIX(1));
-	rb_define_const(g_ktoblzcheck, "ERROR", INT2FIX(2));
-	rb_define_const(g_ktoblzcheck, "BANK_NOT_KNOWN", INT2FIX(3));
+  g_ktoblzcheck = rb_define_class("KtoBlzCheck", rb_cObject);
+  g_error = rb_define_class_under(g_ktoblzcheck, "Error", rb_eStandardError);
+  
+  rb_define_method(g_ktoblzcheck, "initialize",     init,         -1);
+  rb_define_method(g_ktoblzcheck, "check",          check,        2);
+  rb_define_method(g_ktoblzcheck, "num_records",    num_records,  0);
+  rb_define_method(g_ktoblzcheck, "close",          close_anc,    0);
+  rb_define_method(g_ktoblzcheck, "find",           find_info,    1);
+
+  rb_define_const(g_ktoblzcheck, "OK",              INT2FIX(0));
+  rb_define_const(g_ktoblzcheck, "UNKNOWN",         INT2FIX(1));
+  rb_define_const(g_ktoblzcheck, "ERROR",           INT2FIX(2));
+  rb_define_const(g_ktoblzcheck, "BANK_NOT_KNOWN",  INT2FIX(3));
+
+  rb_define_const(g_ktoblzcheck, "VERSION",         rb_str_new2(AccountNumberCheck_libraryVersion()));
 }

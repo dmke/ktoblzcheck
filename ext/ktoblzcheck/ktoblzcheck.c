@@ -61,7 +61,11 @@ static AccountNumberCheck* g_anc = NULL;
 #endif
 
 /*
- * KtoBlzCheck#close 
+ * call-seq:
+ *    kbc.close -> nil
+ *
+ * Closes the KtoBlzCheck object's handle for `libktoblzcheck`. Must be called
+ * to prevent resource leaks if the constructor is not used with block syntax.
  */
 static VALUE
 close_anc(VALUE self) {
@@ -75,8 +79,20 @@ close_anc(VALUE self) {
 }
 
 /*
- * KtoBlzCheck.new [ |block| ]
- * KtoBlzCheck.new(datapath) [ |block| ]
+ * call-seq:
+ *    KtoBlzCheck.new([datapath]) {|kbc| block }  -> nil
+ *    KtoBlzCheck.new([datapath])                 -> kbc
+ *
+ * Constructs a new KtoBlzCheck object, returns it or passes it to an optional
+ * code block. If no block is provided, the user must call `kbc.close` to
+ * ensure that all resources are freed after usage.
+ *
+ * If a parameter is passed to new it is interpreted as the path to the data
+ * file to be used by `libktoblzcheck`. When the parameter is omitted, the
+ * default file of `libktoblzcheck` is used  (usually
+ * `/usr/[local/]share/[lib]ktoblzcheck[*]/bankdata.txt`).
+ *
+ * A `nil` value passed as parameter is ignored.
  */
 static VALUE
 init(int argc, VALUE *argv, VALUE self)
@@ -93,14 +109,13 @@ init(int argc, VALUE *argv, VALUE self)
     Check_Type(dp, T_STRING);
     
     /*
-     * The libktoblzcheck constructor writes an error
-     * message to stderr if the given data filen can not
-     * be accessed :( Additionally, we don't get a proper
-     * return value which could be used to test for success
-     * (it's a C++ constructor that we are calling). Even a
-     * successful intialization (i.e. we get a pointer != NULL
-     * from AccountNumberCheck_new_file doesn't mean that the
-     * opened file is a valid data file).
+     * The libktoblzcheck constructor writes an error message to stderr if the
+     * given data filen can not be accessed :(
+     * Additionally, we don't get a proper return value which could be used to
+     * test for success (it's a C++ constructor that we are calling). Even a
+     * successful intialization (i.e. we get a `pointer != NULL` from
+     * `AccountNumberCheck_new_file` doesn't mean that the opened file is a
+     * valid data file).
      *
      * We do basic access checking ourselves and hope for the best :)
      */
@@ -134,13 +149,24 @@ init(int argc, VALUE *argv, VALUE self)
 }
 
 /*
- * KtoBlzCheck#check(bank_code, account_no)
+ * call-seq:
+ *    kbc.check(bank_code, account_no) -> fixnum
+ *
+ * Checks if `bank_code` and `account_no` form a valid combination. The
+ * returned Fixnum indicates the result. The following constants can be
+ * used test the result:
+ * 
+ *    KtoBlzCheck::OK             #=> valid combination of bank code and account number
+ *    KtoBlzCheck::ERROR          #=> !OK
+ *    KtoBlzCheck::UNKNOWN        #=> no verification possible for unknown reason
+ *    KtoBlzCheck::BANK_NOT_KNOWN #=> bank code not known
+ *
+ * If `bank_code` and `account_no` are not of type String, a TypeError is raised.
  */
 static VALUE
 check(VALUE self, VALUE blz, VALUE account)
 {
   AccountNumberCheck_Result res;
-
   Check_Type(blz, T_STRING);
   Check_Type(account, T_STRING);
 
@@ -149,7 +175,11 @@ check(VALUE self, VALUE blz, VALUE account)
 }
 
 /*
- * KtoBlzCheck.num_records
+ * call-seq:
+ *    kbc.num_records -> fixnum
+ *
+ * Returns the number of entries in the currently used data file for
+ * `libktoblzcheck`.
  */
 static VALUE
 num_records(VALUE self)
@@ -158,7 +188,15 @@ num_records(VALUE self)
 }
 
 /*
- * KtoBlzCheck.find(bank_code)
+ * call-seq:
+ *    kbc.find(bank_code) -> array
+ *
+ * Looks up bank name and bank location (city) for the bank identified by
+ * `bank_code`.
+ *
+ * Returns an array with the bank's name (index 0) and the bank's location 
+ * (index 1). The returned array is empty if no bank is found for the given 
+ * bank code.
  */
 static VALUE
 find_info(VALUE self, VALUE blz)
@@ -179,7 +217,11 @@ find_info(VALUE self, VALUE blz)
 }
 
 /*
- * KtoBlzCheck.bankdata_dir(bank_code)
+ * call-seq:
+ *    KtoBlzCheck.bankdata_dir -> string
+ *
+ * Returns the directory where the bankdata file is stored, usually
+ * `/usr/[local/]share/[lib]ktoblzcheck[*]/`.
  */
 static VALUE
 bankdata_dir()
@@ -188,13 +230,33 @@ bankdata_dir()
 }
 
 /*
+ * call-seq:
+ *    KtoBlzCheck.encoding -> string
  *
+ * Returns the character encoding that is used when strings are returned. So
+ * far this has been `ISO-8859-15` (up to and including version 1.11), but at
+ * some point in the future it might change into `UTF-8`.
+ *
+ * For Ruby scripts, this value has little to no relevance, except you want to
+ * mess with `KtoBlzCheck.bankdata_dir`.
  */
 static VALUE
 encoding()
 {
   return rb_str_new2(AccountNumberCheck_stringEncoding());
 }
+
+/*
+ * Document-class: KtoBlzCheck
+ *
+ * A collection of methods around German bank account checks.
+ */
+
+/*
+ * Document-class: KtoBlzCheck::Error
+ *
+ * Error thrown, when the underlying `libktoblzcheck` fails to complete a task.
+ */
 
 /*
  * Ruby extension stuff

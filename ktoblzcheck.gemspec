@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
   spec.name           = "ktoblzcheck"
-  spec.version        = "1.42.0"
+  spec.version        = "1.44.0.beta"
   spec.authors        = ["Sascha Loetz", "Kim Rudolph", "Dominik Menke"]
   spec.email          = ["kim.rudolph@web.de", "dom@digineo.de"]
   spec.description    =

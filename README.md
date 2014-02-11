@@ -1,5 +1,7 @@
 # KtoBlzCheck
 
+[![Build Status](https://travis-ci.org/dmke/ktoblzcheck.png?branch=master)](https://travis-ci.org/dmke/ktoblzcheck)
+
 `KtoBlzCheck` is a small Ruby extension for Linux (written in C) that provides an interface for
 [`libktoblzcheck`](http://ktoblzcheck.sourceforge.net), a library to check German
 account numbers and bank codes. It further provides a simple query method to find

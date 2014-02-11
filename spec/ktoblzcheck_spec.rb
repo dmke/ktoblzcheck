@@ -21,6 +21,7 @@ describe KtoBlzCheck do
 
     context 'of instance methods' do
       subject { KtoBlzCheck.new }
+      after(:all) { subject.close }
 
       it { should respond_to :check }
       it { should respond_to :num_records }
@@ -38,7 +39,7 @@ describe KtoBlzCheck do
         :BANK_NOT_KNOWN
       ].each do |c|
         it c.to_s do
-          KtoBlzCheck.const_get(c).should_not be_nil
+          KtoBlzCheck.const_get(c).should be
         end
       end
     end
@@ -59,7 +60,7 @@ describe KtoBlzCheck do
   if ENV['CHECK_SAMPLE_DATA'] == 'true'
     context 'fixture validation' do
       subject { KtoBlzCheck.new }
-      after(:all) { subject.close }
+      after(:each) { subject.close }
 
       fixtures.each do |e, data|
         expectation = case e

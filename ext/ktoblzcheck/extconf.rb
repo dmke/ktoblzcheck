@@ -6,6 +6,12 @@ if !have_header('ktoblzcheck.h')
   exit 1
 end
 
+if !have_header('iban.h')
+  STDERR.puts "Couldn't find header file iban.h. Install library files and try again\n"
+  STDERR.puts "Hint: visit http://ktoblzcheck.sourceforge.net to obtain a source distribution tar-ball or check the package archives of your distribution (e.g. for Debian `apt-get install libktoblzcheck1-dev`)"
+  exit 1
+end
+
 if !have_library('ktoblzcheck')
   STDERR.puts "Couldn't find link library libktoblzcheck. Install library files and try again\n"
   STDERR.puts "Hint: visit http://ktoblzcheck.sourceforge.net to obtain a source distribution tar-ball or check the package archives of your distribution (e.g. for Debian `apt-get install libktoblzcheck1-dev`)"

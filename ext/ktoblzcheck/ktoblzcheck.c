@@ -1,31 +1,31 @@
 /***************************************************************************
-* 
+*
 *  (c) 2004 Sascha Loetz (sloetz ( a t ) web.de). All rights reserved.
 *
 *
 *  Redistribution and use in source and binary forms of this software, with
 *  or without modification, are permitted provided that the following
 *  conditions are met:
-*  
+*
 *  1. Redistributions of source code must retain any existing copyright
 *     notice, and this entire permission notice in its entirety,
 *     including the disclaimer of warranties.
-*  
+*
 *  2. Redistributions in binary form must reproduce all prior and current
 *     copyright notices, this list of conditions, and the following
 *     disclaimer in the documentation and/or other materials provided
 *     with the distribution.
-*  
+*
 *  3. The name of any author may not be used to endorse or promote
 *     products derived from this software without their specific prior
 *     written permission.
-*  
+*
 *  ALTERNATIVELY, this product may be distributed under the terms of the
 *  GNU General Public License, in which case the provisions of the GNU
 *  GPL are required INSTEAD OF the above restrictions.  (This clause is
 *  necessary due to a potential conflict between the GNU GPL and the
 *  restrictions contained in a BSD-style copyright.)
-*  
+*
 *  THIS SOFTWARE IS PROVIDED AS IS'' AND ANY EXPRESS OR IMPLIED
 *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
@@ -38,21 +38,24 @@
 *  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 *  DAMAGE.
 *************************************************************************
-* 
+*
 * This file is part of the ktoblzcheck package available as a gem
-* 
+*
 * $Id: ktoblzcheck.c,v 1.1 2004/10/28 19:10:19 vdpsoftware Exp $
-*  
+*
 *************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ruby.h>
 #include <ktoblzcheck.h>
+#include <iban.h>
 
 static VALUE g_error;
 static VALUE g_ktoblzcheck;
+static VALUE g_ktoblzcheck_iban;
 static AccountNumberCheck* g_anc = NULL;
+static IbanCheck* g_ic = NULL;
 
 #ifndef RUBY_19
 #ifndef RSTRING_PTR
@@ -71,11 +74,16 @@ static VALUE
 close_anc(VALUE self) {
   if (NULL != g_anc) {
     AccountNumberCheck_delete(g_anc);
-  } else {
-    rb_raise(g_error, "Already closed"); 
   }
+  return Qnil;
+}
 
-  return self;
+static VALUE
+close_ic(VALUE self) {
+  if (NULL != g_ic) {
+    IbanCheck_free(g_ic);
+  }
+  return Qnil;
 }
 
 /*
@@ -95,19 +103,19 @@ close_anc(VALUE self) {
  * A `nil` value passed as parameter is ignored.
  */
 static VALUE
-init(int argc, VALUE *argv, VALUE self)
+init_anc(int argc, VALUE *argv, VALUE self)
 {
   VALUE dp = Qnil;
-  
+
   rb_scan_args(argc, argv, "01", &dp);
 
   if (Qnil == dp) {
-    /* no parameter given */    
-    g_anc = AccountNumberCheck_new();  
+    /* no parameter given */
+    g_anc = AccountNumberCheck_new();
   } else {
     /* a path to a different data path was passed to method */
     Check_Type(dp, T_STRING);
-    
+
     /*
      * The libktoblzcheck constructor writes an error message to stderr if the
      * given data filen can not be accessed :(
@@ -126,23 +134,48 @@ init(int argc, VALUE *argv, VALUE self)
     g_anc = AccountNumberCheck_new_file(RSTRING_PTR(dp));
   }
 
-  /*
-   * did we successfully obtain an AccountNumberCheck handle?
-   */
+  /* did we successfully obtain an AccountNumberCheck handle? */
 
   if (NULL == g_anc) {
     rb_raise(g_error, "Couldn't initialize libktoblzcheck");
     return Qnil;
   }
 
-  /*
-   * block syntax
-   *
-   * KtoBlzCheck.new do |kbc| ... end
-   */
-
   if (rb_block_given_p()) {
     return rb_ensure(rb_yield, self, close_anc, self);
+  } else {
+    return self;
+  }
+}
+
+static VALUE
+init_ic(int argc, VALUE *argv, VALUE self)
+{
+  VALUE dp = Qnil;
+
+  rb_scan_args(argc, argv, "01", &dp);
+
+  if (Qnil == dp) {
+    /* no parameter given */
+    g_ic = IbanCheck_new(NULL);
+  } else {
+    /* a path to a different data path was passed to method */
+    Check_Type(dp, T_STRING);
+
+    if (0 != access(RSTRING_PTR(dp), R_OK)) {
+      rb_raise(g_error, "Can't access file %s", RSTRING_PTR(dp));
+    }
+    g_ic = IbanCheck_new(RSTRING_PTR(dp));
+  }
+
+  /* did we successfully obtain an AccountNumberCheck handle? */
+  if (NULL == g_ic) {
+    rb_raise(g_error, "Couldn't initialize libktoblzcheck");
+    return Qnil;
+  }
+
+  if (rb_block_given_p()) {
+    return rb_ensure(rb_yield, self, close_ic, self);
   } else {
     return self;
   }
@@ -155,7 +188,7 @@ init(int argc, VALUE *argv, VALUE self)
  * Checks if `bank_code` and `account_no` form a valid combination. The
  * returned Fixnum indicates the result. The following constants can be
  * used test the result:
- * 
+ *
  *    KtoBlzCheck::OK             #=> valid combination of bank code and account number
  *    KtoBlzCheck::ERROR          #=> !OK
  *    KtoBlzCheck::UNKNOWN        #=> no verification possible for unknown reason
@@ -164,13 +197,24 @@ init(int argc, VALUE *argv, VALUE self)
  * If `bank_code` and `account_no` are not of type String, a TypeError is raised.
  */
 static VALUE
-check(VALUE self, VALUE blz, VALUE account)
+check_acn(VALUE self, VALUE blz, VALUE account)
 {
   AccountNumberCheck_Result res;
   Check_Type(blz, T_STRING);
   Check_Type(account, T_STRING);
 
   res = AccountNumberCheck_check(g_anc, RSTRING_PTR(blz), RSTRING_PTR(account));
+  return INT2FIX(res);
+}
+
+static VALUE
+check_ic(VALUE self, VALUE iban, VALUE country)
+{
+  IbanCheck_Result res;
+  Check_Type(iban, T_STRING);
+  Check_Type(country, T_STRING);
+
+  res = IbanCheck_check_str(g_ic, RSTRING_PTR(iban), RSTRING_PTR(country));
   return INT2FIX(res);
 }
 
@@ -194,8 +238,8 @@ num_records(VALUE self)
  * Looks up bank name and bank location (city) for the bank identified by
  * `bank_code`.
  *
- * Returns an array with the bank's name (index 0) and the bank's location 
- * (index 1). The returned array is empty if no bank is found for the given 
+ * Returns an array with the bank's name (index 0) and the bank's location
+ * (index 1). The returned array is empty if no bank is found for the given
  * bank code.
  */
 static VALUE
@@ -205,14 +249,14 @@ find_info(VALUE self, VALUE blz)
   const AccountNumberCheck_Record* cr;
 
   Check_Type(blz, T_STRING);
-  
+
   cr = AccountNumberCheck_findBank(g_anc, RSTRING_PTR(blz));
 
   if (NULL != cr) {
     rb_ary_push(ret, rb_str_new2(AccountNumberCheck_Record_bankName(cr)));
     rb_ary_push(ret, rb_str_new2(AccountNumberCheck_Record_location(cr)));
   }
-  
+
   return ret;
 }
 
@@ -271,15 +315,31 @@ Init_ktoblzcheck()
   rb_define_singleton_method(g_ktoblzcheck, "encoding",     encoding,     0);
 
   rb_define_const(g_ktoblzcheck,  "VERSION",        rb_str_new2(AccountNumberCheck_libraryVersion()));
-  
+
   rb_define_const(g_ktoblzcheck,  "OK",             INT2FIX(0));
   rb_define_const(g_ktoblzcheck,  "UNKNOWN",        INT2FIX(1));
   rb_define_const(g_ktoblzcheck,  "ERROR",          INT2FIX(2));
   rb_define_const(g_ktoblzcheck,  "BANK_NOT_KNOWN", INT2FIX(3));
 
-  rb_define_method(g_ktoblzcheck, "initialize",     init,         -1);
-  rb_define_method(g_ktoblzcheck, "check",          check,        2);
+  rb_define_method(g_ktoblzcheck, "initialize",     init_anc,     -1);
+  rb_define_method(g_ktoblzcheck, "check",          check_acn,    2);
   rb_define_method(g_ktoblzcheck, "num_records",    num_records,  0);
   rb_define_method(g_ktoblzcheck, "close",          close_anc,    0);
   rb_define_method(g_ktoblzcheck, "find",           find_info,    1);
+
+  g_ktoblzcheck_iban = rb_define_class_under(g_ktoblzcheck, "IBAN", rb_cObject);
+
+  rb_define_const(g_ktoblzcheck_iban,   "VERSION",            rb_str_new2(AccountNumberCheck_libraryVersion())); /* yup. */
+
+  rb_define_const(g_ktoblzcheck_iban,   "OK",                 INT2FIX(0));
+  rb_define_const(g_ktoblzcheck_iban,   "TOO_SHORT",          INT2FIX(1));
+  rb_define_const(g_ktoblzcheck_iban,   "PREFIX_NOT_FOUND",   INT2FIX(2));
+  rb_define_const(g_ktoblzcheck_iban,   "WRONG_LENGTH",       INT2FIX(3));
+  rb_define_const(g_ktoblzcheck_iban,   "COUNTRY_NOT_FOUND",  INT2FIX(4));
+  rb_define_const(g_ktoblzcheck_iban,   "WRONG_COUNTRY",      INT2FIX(5));
+  rb_define_const(g_ktoblzcheck_iban,   "BAD_CHECKSUM",       INT2FIX(6));
+
+  rb_define_method(g_ktoblzcheck_iban,  "initialize",         init_ic,  -1);
+  rb_define_method(g_ktoblzcheck_iban,  "check",              check_ic, 2);
+  rb_define_method(g_ktoblzcheck_iban,  "close",              close_ic, 0);
 }

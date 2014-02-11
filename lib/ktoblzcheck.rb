@@ -1,7 +1,16 @@
+# encoding: UTF-8
+
 require 'ktoblzcheck/ktoblzcheck'
 require 'pathname'
 
 class KtoBlzCheck
+  RESULT_CODES = {
+    OK              => 'OK',
+    UNKNOWN         => 'unknown validation algorithm',
+    ERROR           => 'account and bank do not match',
+    BANK_NOT_KNOWN  => 'bank is unknown'
+  }
+
   # A simple data structure to hold basic bank information.
   #
   # @param blz        "Bankleitzahl, BLZ", German bank identification number
@@ -51,5 +60,41 @@ class KtoBlzCheck
     end
 
     candidates
+  end
+
+  def self.check(blz, kto)
+    res = nil
+    new {|e| res = e.check(blz.to_s, kto.to_s) }
+    res
+  end
+
+  def self.check!(blz, kto)
+    res = check(blz, kto)
+    return true if res == OK
+    raise KtoBlzCheck::Error, RESULT_CODES[res]
+  end
+
+  class IBAN
+    RESULT_CODES = {
+      OK                => 'IBAN is ok',
+      TOO_SHORT         => 'IBAN is too short',
+      PREFIX_NOT_FOUND  => 'unknown IBAN country prefix',
+      WRONG_LENGTH      => 'wrong length of IBAN',
+      COUNTRY_NOT_FOUND => 'country for IBAN not found',
+      WRONG_COUNTRY     => 'IBAN prefix does not match for country',
+      BAD_CHECKSUM      => 'bad checksum'
+    }
+
+    def self.check(iban)
+      res = nil
+      new {|e| res = e.check(iban.gsub(/\s+/, ''), iban[0,2].upcase) }
+      res
+    end
+
+    def self.check!(iban)
+      res = check(iban)
+      return true if res == OK
+      raise KtoBlzCheck::Error, RESULT_CODES[res]
+    end
   end
 end

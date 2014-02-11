@@ -14,3 +14,14 @@ end
 
 task spec:    :spec_build
 task default: :spec
+
+task console: :spec_build do
+  lib = File.expand_path('../lib', __FILE__)
+  $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+  require 'irb'
+  require 'irb/completion'
+  require 'ktoblzcheck'
+  ARGV.clear
+  IRB.start
+end
